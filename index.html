@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Пластичное сердце</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="heartCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('heartCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height, scale;
+        
+        const maxParticles = 30; 
+        const widthStretch = 12.0; 
+
+        let currentAngle = 0;
+        const angleSpeed = 0.01; 
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            scale = Math.min(width, height) / 800; 
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function getHeartPoint(a) {
+            let xo = 16 * Math.pow(Math.sin(a), 3) * widthStretch;
+            let yo = (13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a)) * 16;
+            return { x: xo * scale, y: -yo * scale };
+        }
+
+        class Particle {
+            constructor(id) {
+                this.angleOffset = (id / maxParticles) * Math.PI * 2;
+
+                let corner = id % 4;
+                let offsetX = width / 2;
+                let offsetY = height / 2;
+                
+                if (corner === 0) { this.x = -offsetX; this.y = -offsetY; }
+                else if (corner === 1) { this.x = offsetX; this.y = -offsetY; }
+                else if (corner === 2) { this.x = -offsetX; this.y = offsetY; }
+                else { this.x = offsetX; this.y = offsetY; }
+
+                this.vx = 0;
+                this.vy = 0;
+                
+                this.spring = 0.003;  
+                this.damping = 0.94;  
+                this.swirl = 0.0015;  
+
+                // Увеличил размер частиц, чтобы они были заметнее
+                this.size = Math.random() * 2 + 2; 
+                this.color = `rgba(255, ${40 + Math.random()*40}, ${80 + Math.random()*40}, 0.5)`;
+            }
+
+            update() {
+                let a = currentAngle + this.angleOffset;
+                let target = getHeartPoint(a);
+
+                let dx = target.x - this.x;
+                let dy = target.y - this.y;
+
+                let ax = dx * this.spring;
+                let ay = dy * this.spring;
+
+                ax += dy * this.swirl;
+                ay -= dx * this.swirl;
+
+                this.vx += ax;
+                this.vy += ay;
+
+                this.vx *= this.damping;
+                this.vy *= this.damping;
+
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            // ИЗМЕНЕННЫЙ МЕТОД ОТРИСОВКИ
+            draw(ctx) {
+                // 1. Рисуем очень короткий и тонкий след (вместо длинной палки)
+                ctx.beginPath();
+                // Уменьшили множитель с 20 до 3, чтобы след был коротким
+                ctx.moveTo(this.x - this.vx * 3, this.y - this.vy * 3);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = this.size * 0.4; // Сделали след тоньше
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // 2. Рисуем саму частицу (кружок)
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        let particles = [];
+        for (let i = 0; i < maxParticles; i++) {
+            particles.push(new Particle(i));
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.save();
+            ctx.translate(width / 2, height / 2);
+
+            currentAngle += angleSpeed;
+            if (currentAngle > Math.PI * 2) currentAngle -= Math.PI * 2;
+
+            for (let p of particles) {
+                p.update();
+                p.draw(ctx);
+            }
+
+            ctx.restore();
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
